@@ -67,6 +67,29 @@ class MANN(nn.Module):
 
         # SOLUTION:
 
+        tasks, shots, classes, dim = input_images.shape
+        shots -= 1
+
+        # LSTM takes in inputs of size [B, (K+1)*N, D + N].
+        # that is, all shot inputs and labels are to be contiguous.
+        images = torch.reshape(input_images, (tasks, (shots + 1)*classes, dim))
+        labels = torch.reshape(input_images, (tasks, (shots + 1)*classes, classes))
+
+        # query set must have labels zeroed out
+        labels = torch.cat(
+            (labels[:, shots, :],                   # take the training shots
+            torch.zeros_like(labels[:, -1: ,:])),   # take the test query with zeroed labels
+            dim = 1                                 # combine at first dimension (shots)
+        )
+
+        # create input consisting of image with labels appended.
+        inp = torch.cat((images, labels), dim = 2)
+
+        tmp = self.layer1(inp)
+        output = self.layer2(tmp)
+        output = torch.reshape(output, (tasks, shots, classes, classes))
+
+        return output
 
     def loss_function(self, preds, labels):
         """

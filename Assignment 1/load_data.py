@@ -134,7 +134,7 @@ class DataGenerator(object):
             # diagonal matrix N*N matrix with diag = 0 ,..., N.
             # in particular, each row is the one-hot vector wrt its class label.
             one_hots = np.fill_diagonal(
-                np.zeros(classes, classes), 
+                np.zeros((classes, classes)), 
                 np.arange(0, classes, dtype=float)
             )
 

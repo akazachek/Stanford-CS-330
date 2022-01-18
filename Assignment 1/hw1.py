@@ -110,6 +110,24 @@ class MANN(nn.Module):
 
         # SOLUTION:        
 
+        _, _, classes = preds.shape
+
+        # isolates take the last N test classes.
+        # squeeze subsumes the one-dimensional component.
+        test_preds = preds[:, -1].squeeze()
+        test_truths = labels[:, -1].squeeze()
+
+        # cross-entropy loss takes in data tensor of dims [num_inputs, label_size]
+        # so we need drop the batch component of the tensor and list them all in order.
+        test_preds = torch.reshape(test_preds, (-1, classes))
+
+        # cross-entropy loss takes in label tensor of dims [num_inputs]
+        # so we need to extract the true label first.
+        test_truths = torch.reshape(test_truths, (-1, classes))
+        test_truths = torch.argmax(test_truths, dim = 1) # dim = 1 gets rows
+
+        loss = F.cross_entropy(test_preds, test_truths)
+        return loss
 
 
 def train_step(images, labels, model, optim):

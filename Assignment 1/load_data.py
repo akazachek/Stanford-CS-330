@@ -125,21 +125,18 @@ class DataGenerator(object):
 
         classes = self.num_classes
         shots = self.num_samples_per_class
+        shots -= 1
 
         images = torch.zeros(batch_size, shots + 1, classes, 784)
         labels = torch.zeros(batch_size, shots + 1, classes, classes)
 
         for task in range(batch_size):
 
-            # diagonal matrix N*N matrix with diag = 0 ,..., N.
+            # N*N identity matrix.
             # in particular, each row is the one-hot vector wrt its class label.
-            one_hots = np.fill_diagonal(
-                np.zeros((classes, classes)), 
-                np.arange(0, classes, dtype=float)
-            )
-
+            one_hots = np.identity(classes)
             # randomly select character sets (the N)
-            chars = np.random.choice(folders)
+            chars = np.random.choice(folders, classes)
             # randomly select shots for each N (the K)
             dta_train = get_images(chars, one_hots, nb_samples=shots)
             # randomly select test, with mixed up label
@@ -160,11 +157,13 @@ class DataGenerator(object):
                         # populate the query data.
                         label, img = dta_test[clss]
                         img = image_file_to_array(img, 28*28)
-                        images[task, shots + 1, clss] = torch.from_numpy(img)
-                        labels[task, shots + 1, clss] = torch.from_numpy(label)
+                        # remember 0 indexing
+                        images[task, shots, clss] = torch.from_numpy(img)       
+                        labels[task, shots, clss] = torch.from_numpy(label)
                 
                 # after first iteration of outer loop, 
                 # query data will be fully populated.
                 flag = True
 
+        return images, labels
 

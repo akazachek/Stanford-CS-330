@@ -73,21 +73,21 @@ class MANN(nn.Module):
         # LSTM takes in inputs of size [B, (K+1)*N, D + N].
         # that is, all shot inputs and labels are to be contiguous.
         images = torch.reshape(input_images, (tasks, (shots + 1)*classes, dim))
-        labels = torch.reshape(input_images, (tasks, (shots + 1)*classes, classes))
+        labels = torch.reshape(input_labels, (tasks, (shots + 1)*classes, classes))
 
         # query set must have labels zeroed out
         labels = torch.cat(
-            (labels[:, shots, :],                   # take the training shots
-            torch.zeros_like(labels[:, -1: ,:])),   # take the test query with zeroed labels
+            (labels[:,:-1,:],                       # take the training shots
+            torch.zeros_like(labels[:,-1:,:])),     # take the test query with zeroed labels
             dim = 1                                 # combine at first dimension (shots)
         )
 
         # create input consisting of image with labels appended.
-        inp = torch.cat((images, labels), dim = 2)
+        inp = torch.cat((images, labels), dim = 2).cuda()
 
-        tmp = self.layer1(inp)
-        output = self.layer2(tmp)
-        output = torch.reshape(output, (tasks, shots, classes, classes))
+        tmp, _ = self.layer1(inp)
+        output, _ = self.layer2(tmp)
+        output = torch.reshape(output, (tasks, shots + 1, classes, classes))
 
         return output
 
@@ -110,7 +110,7 @@ class MANN(nn.Module):
 
         # SOLUTION:        
 
-        _, _, classes = preds.shape
+        _, _, classes, _ = preds.shape
 
         # isolates take the last N test classes.
         # squeeze subsumes the one-dimensional component.
@@ -119,12 +119,12 @@ class MANN(nn.Module):
 
         # cross-entropy loss takes in data tensor of dims [num_inputs, label_size]
         # so we need drop the batch component of the tensor and list them all in order.
-        test_preds = torch.reshape(test_preds, (-1, classes))
+        test_preds = torch.reshape(test_preds, (-1, classes)).cuda()
 
         # cross-entropy loss takes in label tensor of dims [num_inputs]
         # so we need to extract the true label first.
         test_truths = torch.reshape(test_truths, (-1, classes))
-        test_truths = torch.argmax(test_truths, dim = 1) # dim = 1 gets rows
+        test_truths = torch.argmax(test_truths, dim = 1).cuda() # dim = 1 gets rows
 
         loss = F.cross_entropy(test_preds, test_truths)
         return loss
@@ -192,7 +192,7 @@ def main(config):
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--num_classes', type=int, default=5)
-    parser.add_argument('--num_samples', type=int, default=1)
+    parser.add_argument('--num_samples', type=int, default=2)
     parser.add_argument('--meta_batch_size', type=int, default=128)
     parser.add_argument('--logdir', type=str, 
                         default='run/log')

@@ -39,7 +39,7 @@ class OmniglotDataset(dataset.Dataset):
     pairs.
     """
 
-    _BASE_PATH = './omniglot_resized'
+    _BASE_PATH = './Assignment 1/omniglot_resized'
     _GDD_FILE_ID = '1iaSFXIYC3AB8q9K_M-oVMa4pmB7yKMtI'
 
     def __init__(self, num_support, num_query):

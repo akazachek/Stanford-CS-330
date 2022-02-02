@@ -133,25 +133,43 @@ class ProtoNet:
             # ********************************************************
 
             num_classes = len(set(labels_support))
-            num_images = len(labels_query)
 
             # get predictions for each image in the training data
-            tmp = self._network(images_support)
+            pred_supp = self._network.forward(images_support)
             # take the mean prediction across each label to form the prototypes
-            prototypes = torch.stack([tmp[labels_support == i].mean() for i in range(num_classes)])
+            prototypes = torch.stack([
+                                        torch.mean(pred_supp[labels_support == i], dim = 0) 
+                                        for i in range(num_classes)
+                                    ])  
 
-            predictions = self._network(images_query)
+            # function computes distance from prototypes given set of predictions
+            def prototype_dists(preds):
+                num_images = preds.shape[0]
+                dists = torch.zeros((num_images, num_classes)).cuda()
+                for image in range(num_images):
+                    img = torch.flatten(preds[image])
+                    for prototype in range(num_classes):
+                        ptype = torch.flatten(prototypes[prototype])
+                        # note that we take negative distance so that upon softmax
+                        # distances closest to zero will be the most emphasized
+                        dists[image, prototype] = -torch.dist(img, ptype)**2
+                return dists
 
             # create distance tensor and fill it with distances from prototypes
-            dists = torch.zeros((num_images, num_classes))
-            for image in range(num_images):
-                tmp = torch.zeros(num_classes)
-                for prototype in range(num_classes):
-                    tmp[prototype] = torch.cdist(images_query[image], prototypes[prototype])**2
-                dists[image] = -tmp
+            pred_query = self._network.forward(images_query)
+            query_dists = prototype_dists(pred_query)
 
-            loss = F.cross_entropy(dists, labels_query)
+            # get query loss
+            loss = F.cross_entropy(query_dists, labels_query)
             loss_batch.append(loss)
+
+            # compute accuracy. note that the util.score function simply 
+            # takes an argmax so we need to softmax the distances first
+            acc_query = util.score(torch.softmax(query_dists, dim = 1), labels_query)
+            supp_dists = prototype_dists(pred_supp)
+            acc_supp = util.score(torch.softmax(supp_dists, dim = 1), labels_support)
+            accuracy_support_batch.append(acc_supp)
+            accuracy_query_batch.append(acc_query)
 
         return (
             torch.mean(torch.stack(loss_batch)),
@@ -293,7 +311,7 @@ class ProtoNet:
 def main(args):
     log_dir = args.log_dir
     if log_dir is None:
-        log_dir = f'./logs/protonet/omniglot.way:{args.num_way}.support:{args.num_support}.query:{args.num_query}.lr:{args.learning_rate}.batch_size:{args.batch_size}'  # pylint: disable=line-too-long
+        log_dir = f'./Assignment 2/starter/logs/protonet/omniglot.way.{args.num_way}.support.{args.num_support}.query.{args.num_query}.lr.{args.learning_rate}.batch_size.{args.batch_size}'  # pylint: disable=line-too-long
     print(f'log_dir: {log_dir}')
     writer = tensorboard.SummaryWriter(log_dir=log_dir)
 
